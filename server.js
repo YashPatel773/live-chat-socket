@@ -11,7 +11,7 @@ const app = express();
 //     methods: ["GET", "POST"]
 // }));
 app.use(cors({
-    origin: "*",
+    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
     methods: ["GET", "POST"]
 }));
 
@@ -27,7 +27,7 @@ const server = http.createServer(app);
 // });
 const io = new Server(server, {
     cors: {
-        origin: "*",
+        origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
         methods: ["GET", "POST"]
     }
 });
