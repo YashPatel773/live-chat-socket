@@ -1,3 +1,4 @@
+require("dotenv").config();
 const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
@@ -5,8 +6,12 @@ const cors = require('cors');
 
 // 1. Initialize Express and configure CORS permissions
 const app = express();
+// app.use(cors({
+//     origin: "http://localhost:5173", // Grant access ONLY to your React Vite app
+//     methods: ["GET", "POST"]
+// }));
 app.use(cors({
-    origin: "http://localhost:5173", // Grant access ONLY to your React Vite app
+    origin: "*",
     methods: ["GET", "POST"]
 }));
 
@@ -14,9 +19,15 @@ app.use(cors({
 const server = http.createServer(app);
 
 // 3. Mount Socket.io onto our HTTP server instance
+// const io = new Server(server, {
+//     cors: {
+//         origin: "http://localhost:5173",
+//         methods: ["GET", "POST"]
+//     }
+// });
 const io = new Server(server, {
     cors: {
-        origin: "http://localhost:5173",
+        origin: "*",
         methods: ["GET", "POST"]
     }
 });
@@ -106,7 +117,7 @@ io.on('connection', (socket) => {
 });
 
 // 6. Start listening on Port 3001
-const PORT = 3001;
+const PORT = process.env.PORT || 3001;
 server.listen(PORT, () => {
     console.log(`Socket Server running natively on http://localhost:${PORT}`);
 });
