@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const cors = require("cors");
+const cors = require("cors"); 
 
 // 1. Initialize Express and configure CORS permissions
 const app = express();
@@ -38,6 +38,52 @@ const io = new Server(server, {
 // 4. Memory Storage: Map database user IDs to active Socket connections
 // Structure: { "user_id_from_mysql": "active_socket_id" }
 let onlineUsers = {};
+ 
+
+const postUserOffline = (userId) => {
+  const data = JSON.stringify({ user_id: userId });
+  const options = {
+    hostname: "127.0.0.1",
+    port: 8000,
+    path: "/api/users/offline",
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Content-Length": Buffer.byteLength(data),
+    },
+  };
+
+  const req = http.request(options, (res) => {
+    let body = "";
+    res.on("data", (chunk) => {
+      body += chunk;
+    });
+    res.on("end", () => {
+      try {
+        const parsed = JSON.parse(body);
+        if (parsed.success) {
+          console.log(`[Socket Server] Set user ${userId} offline in Laravel. Last seen: ${parsed.last_seen}`);
+          // Broadcast the offline status and last_seen timestamp to all other clients
+          io.emit("userOffline", {
+            userId: parsed.user_id,
+            last_seen: parsed.last_seen,
+          });
+        } else {
+          console.warn("[Socket Server] Laravel returned non-success response:", parsed);
+        }
+      } catch (err) {
+        console.error("[Socket Server] Error parsing response from Laravel:", err.message, "Body:", body);
+      }
+    });
+  });
+
+  req.on("error", (err) => {
+    console.error("[Socket Server] Error posting user offline to Laravel:", err.message);
+  });
+
+  req.write(data);
+  req.end();
+};
 
 // 5. Establish the listener for active connections
 io.on("connection", (socket) => {
@@ -139,6 +185,7 @@ io.on("connection", (socket) => {
 
     for (let userId in onlineUsers) {
       if (onlineUsers[userId] === socket.id) {
+        postUserOffline(userId);
         delete onlineUsers[userId];
         break;
       }
