@@ -2,7 +2,7 @@ require("dotenv").config();
 const express = require("express");
 const http = require("http");
 const { Server } = require("socket.io");
-const cors = require("cors"); 
+const cors = require("cors");
 
 // 1. Initialize Express and configure CORS permissions
 const app = express();
@@ -13,32 +13,32 @@ const app = express();
 //     methods: ["GET", "POST"],
 //   }),
 // );
-app.use(cors({
+app.use(
+  cors({
     origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
-    methods: ["GET", "POST"]
-}));
+    methods: ["GET", "POST"],
+  }),
+);
 
 // 2. Create the standard HTTP Server using Express
 const server = http.createServer(app);
 
-// 3. Mount Socket.io onto our HTTP server instance
-// const io = new Server(server, {
+//  const io = new Server(server, {
 //   cors: {
 //     origin: "http://localhost:5173",
 //     methods: ["GET", "POST"],
 //   },
 // });
 const io = new Server(server, {
-    cors: {
-        origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
-        methods: ["GET", "POST"]
-    }
+  cors: {
+    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
+    methods: ["GET", "POST"],
+  },
 });
 
 // 4. Memory Storage: Map database user IDs to active Socket connections
 // Structure: { "user_id_from_mysql": "active_socket_id" }
 let onlineUsers = {};
- 
 
 const postUserOffline = (userId) => {
   const data = JSON.stringify({ user_id: userId });
@@ -62,23 +62,36 @@ const postUserOffline = (userId) => {
       try {
         const parsed = JSON.parse(body);
         if (parsed.success) {
-          console.log(`[Socket Server] Set user ${userId} offline in Laravel. Last seen: ${parsed.last_seen}`);
+          console.log(
+            `[Socket Server] Set user ${userId} offline in Laravel. Last seen: ${parsed.last_seen}`,
+          );
           // Broadcast the offline status and last_seen timestamp to all other clients
           io.emit("userOffline", {
             userId: parsed.user_id,
             last_seen: parsed.last_seen,
           });
         } else {
-          console.warn("[Socket Server] Laravel returned non-success response:", parsed);
+          console.warn(
+            "[Socket Server] Laravel returned non-success response:",
+            parsed,
+          );
         }
       } catch (err) {
-        console.error("[Socket Server] Error parsing response from Laravel:", err.message, "Body:", body);
+        console.error(
+          "[Socket Server] Error parsing response from Laravel:",
+          err.message,
+          "Body:",
+          body,
+        );
       }
     });
   });
 
   req.on("error", (err) => {
-    console.error("[Socket Server] Error posting user offline to Laravel:", err.message);
+    console.error(
+      "[Socket Server] Error posting user offline to Laravel:",
+      err.message,
+    );
   });
 
   req.write(data);
