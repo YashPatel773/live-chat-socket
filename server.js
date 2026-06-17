@@ -4,37 +4,35 @@ const http = require("http");
 const { Server } = require("socket.io");
 const cors = require("cors");
 
-// 1. Initialize Express and configure CORS permissions
 const app = express();
 
-// app.use(
-//   cors({
-//     origin: "http://localhost:5173", // Grant access ONLY to your React Vite app
-//     methods: ["GET", "POST"],
-//   }),
-// );
 app.use(
   cors({
-    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
+    origin: "http://localhost:5173", // Grant access ONLY to your React Vite app
     methods: ["GET", "POST"],
   }),
 );
+// app.use(
+//   cors({
+//     origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
+//     methods: ["GET", "POST"],
+//   }),
+// );
 
-// 2. Create the standard HTTP Server using Express
 const server = http.createServer(app);
 
-//  const io = new Server(server, {
-//   cors: {
-//     origin: "http://localhost:5173",
-//     methods: ["GET", "POST"],
-//   },
-// });
-const io = new Server(server, {
+ const io = new Server(server, {
   cors: {
-    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
+    origin: "http://localhost:5173",
     methods: ["GET", "POST"],
   },
 });
+// const io = new Server(server, {
+//   cors: {
+//     origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
+//     methods: ["GET", "POST"],
+//   },
+// });
 
 // 4. Memory Storage: Map database user IDs to active Socket connections
 // Structure: { "user_id_from_mysql": "active_socket_id" }
@@ -65,7 +63,7 @@ const postUserOffline = (userId) => {
           console.log(
             `[Socket Server] Set user ${userId} offline in Laravel. Last seen: ${parsed.last_seen}`,
           );
-          // Broadcast the offline status and last_seen timestamp to all other clients
+
           io.emit("userOffline", {
             userId: parsed.user_id,
             last_seen: parsed.last_seen,
