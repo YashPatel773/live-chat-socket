@@ -8,32 +8,27 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173", // Grant access ONLY to your React Vite app
+    // origin: "http://localhost:5173", // Grant access ONLY to your React Vite app
+    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
     methods: ["GET", "POST"],
   }),
 );
 // app.use(
 //   cors({
-//     origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
 //     methods: ["GET", "POST"],
 //   }),
 // );
 
 const server = http.createServer(app);
 
- const io = new Server(server, {
+const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
+    //     origin: "http://localhost:5173",
+    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
     methods: ["GET", "POST"],
   },
 });
-// const io = new Server(server, {
-//   cors: {
-//     origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
-//     methods: ["GET", "POST"],
-//   },
-// });
-
+// cog
 // 4. Memory Storage: Map database user IDs to active Socket connections
 // Structure: { "user_id_from_mysql": "active_socket_id" }
 let onlineUsers = {};
@@ -120,21 +115,132 @@ io.on("connection", (socket) => {
     }
   });
 
-  // EVENT B: Sending a Live Private Message
+  // EVENT B: Sending a Live Private or Group Message
   socket.on("sendMessage", (data) => {
-    const { sender_id, receiver_id, message, created_at, id } = data;
+    console.log("[Socket Server] Received sendMessage event. Payload:", data);
+    const {
+      sender_id,
+      receiver_id,
+      group_id,
+      message,
+      created_at,
+      id,
+      sender,
+      type,
+      file_path,
+      file_name,
+    } = data;
 
-    // Look up if the target receiver is currently online
-    const receiverSocketId = onlineUsers[receiver_id];
-    if (receiverSocketId) {
-      // Instantly push the message straight to the receiver's screen
-      io.to(receiverSocketId).emit("getMessage", {
+    if (group_id) {
+      console.log(
+        `[Socket Server] Broadcasting group message to room group_${group_id}`,
+      );
+      io.to(`group_${group_id}`).emit("getMessage", {
         id,
         sender_id,
-        receiver_id,
+        receiver_id: null,
+        group_id,
         message,
+        type,
+        file_path,
+        file_name,
         created_at,
+        sender,
       });
+    } else if (receiver_id) {
+      const receiverSocketId = onlineUsers[receiver_id];
+      console.log(
+        `[Socket Server] Private message. receiver_id: ${receiver_id}, online socket: ${receiverSocketId}`,
+      );
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("getMessage", {
+          id,
+          sender_id,
+          receiver_id,
+          message,
+          created_at,
+          type,
+          file_name,
+          file_path,
+        });
+        console.log(
+          `[Socket Server] Emitted getMessage to socket ${receiverSocketId}`,
+        );
+      } else {
+        console.warn(`[Socket Server] Receiver ${receiver_id} is not online.`);
+      }
+    }
+  });
+
+  // EVENT B-2: Join Group Rooms
+  socket.on("joinGroups", (groupIds) => {
+    if (Array.isArray(groupIds)) {
+      groupIds.forEach((id) => {
+        socket.join(`group_${id}`);
+        console.log(
+          `[Socket Server] Socket ${socket.id} joined room group_${id}`,
+        );
+      });
+    }
+  });
+
+  socket.on("joinGroup", (groupId) => {
+    if (groupId) {
+      socket.join(`group_${groupId}`);
+      console.log(
+        `[Socket Server] Socket ${socket.id} joined room group_${groupId}`,
+      );
+    }
+  });
+
+  // EVENT B-3: Broadcast Group Creation to Members
+  socket.on("createGroup", (data) => {
+    const { group } = data;
+    if (group && Array.isArray(group.members)) {
+      group.members.forEach((member) => {
+        const memberSocketId = onlineUsers[member.id];
+        if (memberSocketId) {
+          io.to(memberSocketId).emit("groupCreated", group);
+          console.log(
+            `[Socket Server] Notified online member ${member.id} of new group: ${group.name}`,
+          );
+        }
+      });
+    }
+  });
+
+  // EVENT B-4: Broadcast Group Updates (member additions/removals)
+  socket.on("updateGroup", (data) => {
+    const { group, addedMemberId, removedMemberId } = data;
+    if (group) {
+      // Notify all existing group members of the update
+      io.to(`group_${group.id}`).emit("groupUpdated", { group });
+
+      // Notify the newly added member to join the group in real-time
+      if (addedMemberId) {
+        const memberSocketId = onlineUsers[addedMemberId];
+        if (memberSocketId) {
+          io.to(memberSocketId).emit("groupCreated", group);
+          console.log(
+            `[Socket Server] Notified added member ${addedMemberId} of group: ${group.name}`,
+          );
+        }
+      }
+
+      // Notify the removed member and remove their socket from the group room
+      if (removedMemberId) {
+        const memberSocketId = onlineUsers[removedMemberId];
+        if (memberSocketId) {
+          io.to(memberSocketId).emit("groupRemoved", { groupId: group.id });
+          const memberSocket = io.sockets.sockets.get(memberSocketId);
+          if (memberSocket) {
+            memberSocket.leave(`group_${group.id}`);
+            console.log(
+              `[Socket Server] Forced socket ${memberSocketId} to leave room group_${group.id}`,
+            );
+          }
+        }
+      }
     }
   });
 
