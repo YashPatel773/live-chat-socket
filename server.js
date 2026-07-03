@@ -8,8 +8,8 @@ const app = express();
 
 app.use(
   cors({
-    // origin: "http://localhost:5173", // Grant access ONLY to your React Vite app
-    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
+    // origin: "http://localhost:5173",
+    origin: ["https://live-chat-frontend-nu.vercel.app"],
     methods: ["GET", "POST"],
   }),
 );
@@ -23,8 +23,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    //     origin: "http://localhost:5173",
-    origin: ["https://live-chat-frontend-nu.vercel.app"], // <-- Replace with your real exact Vercel URL
+    // origin: "http://localhost:5173",
+    origin: ["https://live-chat-frontend-nu.vercel.app"],
     methods: ["GET", "POST"],
   },
 });
@@ -129,6 +129,8 @@ io.on("connection", (socket) => {
       type,
       file_path,
       file_name,
+      reply_to_id, // NEW
+      reply_to,
     } = data;
 
     if (group_id) {
@@ -146,6 +148,8 @@ io.on("connection", (socket) => {
         file_name,
         created_at,
         sender,
+        reply_to_id, // NEW
+        reply_to,
       });
     } else if (receiver_id) {
       const receiverSocketId = onlineUsers[receiver_id];
@@ -162,6 +166,8 @@ io.on("connection", (socket) => {
           type,
           file_name,
           file_path,
+          reply_to_id, // NEW
+          reply_to,
         });
         console.log(
           `[Socket Server] Emitted getMessage to socket ${receiverSocketId}`,
@@ -315,6 +321,36 @@ io.on("connection", (socket) => {
     const receiverSocketId = onlineUsers[receiverId];
     if (receiverSocketId) {
       io.to(receiverSocketId).emit("messageDeletedForEveryone", { messageId });
+    }
+  });
+
+  socket.on("messageReaction", (data) => {
+    console.log("[Socket Server] Received messageReaction event. Payload:", data);
+    const { message_id, receiver_id, group_id, reactions } = data;
+
+    if (group_id) {
+      console.log(`[Socket Server] Broadcasting messageReaction to room group_${group_id}`);
+      io.to(`group_${group_id}`).emit("messageReactionUpdated", { message_id, reactions });
+    } else if (receiver_id) {
+      const receiverSocketId = onlineUsers[receiver_id];
+      console.log(`[Socket Server] Private message reaction. receiver_id: ${receiver_id}, socket: ${receiverSocketId}`);
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("messageReactionUpdated", { message_id, reactions });
+      }
+    }
+  });
+
+  socket.on("messageEdit", (data) => {
+    console.log("[Socket Server] Received messageEdit event. Payload:", data);
+    const { message_id, receiver_id, group_id, message, is_edited } = data;
+
+    if (group_id) {
+      io.to(`group_${group_id}`).emit("messageEdited", { message_id, message, is_edited });
+    } else if (receiver_id) {
+      const receiverSocketId = onlineUsers[receiver_id];
+      if (receiverSocketId) {
+        io.to(receiverSocketId).emit("messageEdited", { message_id, message, is_edited });
+      }
     }
   });
 });
