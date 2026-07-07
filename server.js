@@ -30,7 +30,7 @@ const io = new Server(server, {
 });
 // cog
 // 4. Memory Storage: Map database user IDs to active Socket connections
-// Structure: { "user_id_from_mysql": "active_socket_id" }
+ 
 let onlineUsers = {};
 
 const postUserOffline = (userId) => {
