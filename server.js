@@ -13,11 +13,6 @@ app.use(
     methods: ["GET", "POST"],
   }),
 );
-// app.use(
-//   cors({
-//     methods: ["GET", "POST"],
-//   }),
-// );
 
 const server = http.createServer(app);
 
@@ -166,7 +161,7 @@ io.on("connection", (socket) => {
           type,
           file_name,
           file_path,
-          reply_to_id, // NEW
+          reply_to_id, 
           reply_to,
         });
         console.log(
