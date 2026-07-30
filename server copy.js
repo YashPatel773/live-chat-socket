@@ -8,8 +8,8 @@ const app = express();
 
 app.use(
   cors({
-    origin: "http://localhost:5173",
-    // origin: ["https://live-chat-frontend-nu.vercel.app"],
+    // origin: "http://localhost:5173",
+    origin: ["https://live-chat-frontend-nu.vercel.app"],
     methods: ["GET", "POST"],
   }),
 );
@@ -18,8 +18,8 @@ const server = http.createServer(app);
 
 const io = new Server(server, {
   cors: {
-    origin: "http://localhost:5173",
-    // origin: ["https://live-chat-frontend-nu.vercel.app"],
+    // origin: "http://localhost:5173",
+    origin: ["https://live-chat-frontend-nu.vercel.app"],
     methods: ["GET", "POST"],
   },
 });
@@ -346,97 +346,6 @@ io.on("connection", (socket) => {
       if (receiverSocketId) {
         io.to(receiverSocketId).emit("messageEdited", { message_id, message, is_edited });
       }
-    }
-  });
-
-  // ==========================================
-  // WEBRTC CALL SIGNALING EVENTS
-  // ==========================================
-
-  // 1. Call Request (User A calls User B)
-  socket.on("call-request", (data) => {
-    const { toUserId, fromUser, callType } = data;
-    console.log(`[Call Socket] Call request from ${fromUser?.name} (ID: ${fromUser?.id}) to user ID ${toUserId} (${callType})`);
-
-    const calleeSocketId = onlineUsers[toUserId];
-
-    if (!calleeSocketId) {
-      console.log(`[Call Socket] Target user ${toUserId} is offline.`);
-      socket.emit("call-user-offline", { toUserId });
-      return;
-    }
-
-    console.log(`[Call Socket] Forwarding call-incoming to target socket ${calleeSocketId}`);
-    io.to(calleeSocketId).emit("call-incoming", {
-      fromUser,
-      callType,
-      signalData: data.signalData || null
-    });
-  });
-
-  // 2. Accept Call
-  socket.on("call-accept", (data) => {
-    const { toUserId, answerSignal } = data;
-    console.log(`[Call Socket] Call accepted by user, notifying caller ${toUserId}`);
-    const callerSocketId = onlineUsers[toUserId];
-    if (callerSocketId) {
-      io.to(callerSocketId).emit("call-accepted", { answerSignal });
-    }
-  });
-
-  // 3. Reject Call
-  socket.on("call-reject", (data) => {
-    const { toUserId, reason } = data;
-    console.log(`[Call Socket] Call rejected for user ${toUserId}, reason: ${reason || 'rejected'}`);
-    const callerSocketId = onlineUsers[toUserId];
-    if (callerSocketId) {
-      io.to(callerSocketId).emit("call-rejected", { reason: reason || 'rejected' });
-    }
-  });
-
-  // 4. Send WebRTC Offer
-  socket.on("call-offer", (data) => {
-    const { toUserId, offer } = data;
-    const targetSocketId = onlineUsers[toUserId];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("call-offer-received", { offer, fromSocketId: socket.id });
-    }
-  });
-
-  // 5. Send WebRTC Answer
-  socket.on("call-answer", (data) => {
-    const { toUserId, answer } = data;
-    const targetSocketId = onlineUsers[toUserId];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("call-answer-received", { answer });
-    }
-  });
-
-  // 6. Exchange ICE Candidate
-  socket.on("call-ice-candidate", (data) => {
-    const { toUserId, candidate } = data;
-    const targetSocketId = onlineUsers[toUserId];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("call-ice-candidate-received", { candidate });
-    }
-  });
-
-  // 7. End Call
-  socket.on("call-end", (data) => {
-    const { toUserId } = data;
-    console.log(`[Call Socket] Call ended notification sent to ${toUserId}`);
-    const targetSocketId = onlineUsers[toUserId];
-    if (targetSocketId) {
-      io.to(targetSocketId).emit("call-ended");
-    }
-  });
-
-  // 8. User Busy Signal
-  socket.on("call-busy", (data) => {
-    const { toUserId } = data;
-    const callerSocketId = onlineUsers[toUserId];
-    if (callerSocketId) {
-      io.to(callerSocketId).emit("call-busy-received");
     }
   });
 });
